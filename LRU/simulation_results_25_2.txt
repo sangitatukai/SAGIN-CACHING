@@ -1,0 +1,24 @@
+values for total caching: total cache hit:473 
+hit values for uav: hit_from_direct_hit: 14, hit from GS: 99, hit for SAGIN links_uav: 50, hit for SAGIN links_sat: 1345values cache_hit_details: total hit from uav: 4, optimal_hit :0, cache_1st_hop: 18, cache_2nd_hop: 0values for requests: total request receved : 5815, total request for caching: 4388 
+values for vehicles: hit from source: 0, hit from cache: 39, total request: 13688, request for cache:13688 
+values for bs: hit from source: 0, hit from cache: 189, total request: 17793, request for cache:17793 
+
+Results for value 2 for 25 time slots (averaged over 1 simulations):
+Average total content hit: 473.0
+Average total content hit: 0.10779398359161349
+Average direct_hit_uav: 14.0
+Average direct_hit_for_SAGIN_UAV_links: 50.0
+Average direct_hit_for_SAGIN_SAT_links: 1345.0
+Cache hit ratio_uav: 4.0
+Cache hit ratio_uav: 0.0009115770282588879
+Optimal Cache hit ratio_uav: 0.0
+ Cache hit 1st hop: 0.004102096627164996
+Cache hit 2nd hop: 0.0
+Average source hit from vehicle: 0.0
+Average cache hit from vehicle: 39.0
+Average request for cache to vehicle: 13688.0
+Average request to vehicle: 13688.0
+Average source hit from BS: 0.0
+Average cache hit from BS: 189.0
+Average request for cache to BS: 17793.0
+Average request to BD: 17793.0
