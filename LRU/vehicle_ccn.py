@@ -719,9 +719,7 @@ class Vehicle:
       for uav in uavs:  # check under which uav this vehicle is travelling # chnages for spatio-temporal
           if uav.is_within_coverage(self.current_location[0], self.current_location[1]):
               for _ in range(no_of_request_genertaed_in_each_timeslot):
-                  content_request = communication.send_content_request(self, vehicles, uavs, base_stations, satellites,
-                                                                       grid_size, current_time, slot,
-                                                                       no_of_content_each_category, uav.current_zipf)
+                  content_request = communication.send_content_request(self, vehicles, uavs, base_stations, satellites,grid_size, current_time, slot, no_of_content_each_category, uav.current_zipf)
 
                   if(content_request['unique_id'] != 0):
                         self.active_requests.add(content_request['unique_id'])

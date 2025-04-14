@@ -49,16 +49,15 @@ class UAV:
         self.avg_decision_latency =0
         self.decision_count=0
         self.aggregator = aggregator
-
         self.current_zipf = current_zipf
 
     def update_zipf(self, current_slot):
-        """
-        Updates Zipf value dynamically every 60 slots.
-        """
-        self.current_zipf = random.uniform(0.25, 2.0)  # Generate new Zipf value
+            """
+            Updates Zipf value dynamically every 60 slots.
+            """
+            self.current_zipf = random.uniform(0.25, 2.0)  # Generate new Zipf value
 
-        return self.current_zipf
+            return self.current_zipf
 
     def cache_cleanup(self, current_time):
         for content_coord, coord_cache in self.content_cache.items():
@@ -1103,6 +1102,5 @@ class UAV:
                                satellites)  # while the loop is in 11th we are giving the slot no 10 becase we are eager to cache the content those would be out of range after 10th slot
             self.send_update_to_federated_server()
         #self.print_cache()
-            # self.print_cache()
             if slot % 60 == 0:
                 self.update_zipf(slot)

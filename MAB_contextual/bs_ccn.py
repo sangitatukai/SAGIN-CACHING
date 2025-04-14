@@ -1,3 +1,6 @@
+# bs_ccn.py
+
+import time
 import random
 import math
 import numpy as np
@@ -65,6 +68,7 @@ class BaseStation:
         return 1 / (1 + math.exp(-x))
 
     def process_content_request(self, communication, content_request, slot, grid_size, ground_station, flag):
+        #print('hi 1')
         element_type = content_request['type']
         content_coord = content_request['coord']
         hop_count = content_request['hop_count']
@@ -138,7 +142,8 @@ class BaseStation:
                 return True
             else:
                 self.request_receive_cache += 1
-                if self.find_cache(content_request):
+                content=self.find_cache(communication, content_request, slot)
+                if content:
                     if communication.content_received_time > (
                             content_request['hop_count'] * random.uniform(0, 0.001)) + (
                             content_request['hop_count'] * ((content['size'] * 8) / self.transmission_rate)):
@@ -181,70 +186,73 @@ class BaseStation:
                 content['size'] * 8) / self.transmission_rate:  # Store the current time
             communication.content_received_time = request_recieve_time + (content['size'] * 8) / self.transmission_rate
         return
-    def update_action_space(self, content, slot, federated_update): ##ucb MAB
-    # Initialize the Q-value for the content to 0
-    # Add content and its associated Q-value
-            if content['content_type'] not in self.record:
-                self.record[content['content_type']]={}
-            if content['content_coord'] not in self.record[content['content_type']]:
-                self.record[content['content_type']][content['content_coord']]={}
-            if content['content_category'] not in self.record[content['content_type']][content['content_coord']]:
-                self.record[content['content_type']][content['content_coord']][content['content_category']]={}
-            if content['content_no'] not in self.record[content['content_type']][content['content_coord']][content['content_category']]:
-                self.record[content['content_type']][content['content_coord']][content['content_category']][content['content_no']]= {
-                                'weighted_request_tracking': 0,
-                                'request_tracking': 0,
-                                'content_hit': 0,
-                                'q_value': 0,
-                                'avg_reward': 0,
-                                'no_f_time_cached':0,
-                                'slot': 0
-                            }
 
-            time_spent = (slot * 60) - content['generation_time']
-            if self.request_receive_cache > 0:
-                self.record[content['content_type']][content['content_coord']][content['content_category']][
-                    content['content_no']] \
-                    ['weighted_request_tracking'] \
-                    = self.sigmoid((0.25 *
-                                    self.record[content['content_type']][content['content_coord']][content['content_category']][
-                                        content['content_no']] \
-                                        ['weighted_request_tracking']) + 0.75 * (
-                                           self.record[content['content_type']][content['content_coord']][
-                                               content['content_category']][content['content_no']][
-                                               'request_tracking'] / self.request_receive_cache))
-
-            p = self.record[content['content_type']][content['content_coord']][content['content_category']][
-                content['content_no']] \
-                ['weighted_request_tracking']
-            s = max(1, self.record[content['content_type']][content['content_coord']]
-            [content['content_category']][content['content_no']]['slot'])  # Ensure s >= 1
-
-            no_f_time_cached = max(1, self.record[content['content_type']][content['content_coord']]
-            [content['content_category']][content['content_no']]['no_f_time_cached'])  # Ensure >=1
-
-            ucb = np.sqrt((2 * np.log(s)) / no_f_time_cached)  # Now always valid
-
-            local_q_value = self.sigmoid(self.record[content['content_type']][content['content_coord']]
-                                         [content['content_category']][content['content_no']]['avg_reward'] +
-                                         (self.cache_size / content['size']) +
-                                         ((content['content_validity'] - time_spent) / content['content_validity']) +
-                                         self.record[content['content_type']][content['content_coord']]
-                                         [content['content_category']][content['content_no']][
-                                             'weighted_request_tracking'])
-            if federated_update:
-                federated_q_value = self.aggregator.get_federated_q_value(content)
-                q = 0.5 * local_q_value + 0.5 * federated_q_value + ucb  # Weighted Combination
-            else:
-                q = local_q_value + ucb
-
+    def update_action_space(self, content, slot, federated_update):  ##ucb MAB
+        # Initialize the Q-value for the content to 0
+        # Add content and its associated Q-value
+        if content['content_type'] not in self.record:
+            self.record[content['content_type']] = {}
+        if content['content_coord'] not in self.record[content['content_type']]:
+            self.record[content['content_type']][content['content_coord']] = {}
+        if content['content_category'] not in self.record[content['content_type']][content['content_coord']]:
+            self.record[content['content_type']][content['content_coord']][content['content_category']] = {}
+        if content['content_no'] not in self.record[content['content_type']][content['content_coord']][
+            content['content_category']]:
             self.record[content['content_type']][content['content_coord']][content['content_category']][
-                content['content_no']]['q_value'] = q
+                content['content_no']] = {
+                'weighted_request_tracking': 0,
+                'request_tracking': 0,
+                'content_hit': 0,
+                'q_value': 0,
+                'avg_reward': 0,
+                'no_f_time_cached': 0,
+                'slot': 0
+            }
 
-    # Add content and associated Q-value to the action space
-            self.action_space.append({'content': content, 'q_value': q, 'slot':s, 'popularity':p})
-            return
+        time_spent = (slot * 60) - content['generation_time']
+        if self.request_receive_cache > 0:
+            self.record[content['content_type']][content['content_coord']][content['content_category']][
+                content['content_no']] \
+                ['weighted_request_tracking'] \
+                = self.sigmoid((0.25 *
+                                self.record[content['content_type']][content['content_coord']][
+                                    content['content_category']][
+                                    content['content_no']] \
+                                    ['weighted_request_tracking']) + 0.75 * (
+                                       self.record[content['content_type']][content['content_coord']][
+                                           content['content_category']][content['content_no']][
+                                           'request_tracking'] / self.request_receive_cache))
 
+        p = self.record[content['content_type']][content['content_coord']][content['content_category']][
+            content['content_no']] \
+            ['weighted_request_tracking']
+        s = max(1, self.record[content['content_type']][content['content_coord']]
+        [content['content_category']][content['content_no']]['slot'])  # Ensure s >= 1
+
+        no_f_time_cached = max(1, self.record[content['content_type']][content['content_coord']]
+        [content['content_category']][content['content_no']]['no_f_time_cached'])  # Ensure >=1
+
+        ucb = np.sqrt((2 * np.log(s)) / no_f_time_cached)  # Now always valid
+
+        local_q_value = self.sigmoid(self.record[content['content_type']][content['content_coord']]
+                                     [content['content_category']][content['content_no']]['avg_reward'] +
+                                     (self.cache_size / content['size']) +
+                                     ((content['content_validity'] - time_spent) / content['content_validity']) +
+                                     self.record[content['content_type']][content['content_coord']]
+                                     [content['content_category']][content['content_no']][
+                                         'weighted_request_tracking'])
+        if federated_update:
+            federated_q_value = self.aggregator.get_federated_q_value(content)
+            q = 0.5 * local_q_value + 0.5 * federated_q_value + ucb  # Weighted Combination
+        else:
+            q = local_q_value + ucb
+
+        self.record[content['content_type']][content['content_coord']][content['content_category']][
+            content['content_no']]['q_value'] = q
+
+        # Add content and associated Q-value to the action space
+        self.action_space.append({'content': content, 'q_value': q, 'slot': s, 'popularity': p})
+        return
 
     '''def update_action_space(self, content, slot, federated_update): ##MAB and all
     # Initialize the Q-value for the content to 0
@@ -284,18 +292,17 @@ class BaseStation:
                 ['weighted_request_tracking']
             s = self.record[content['content_type']][content['content_coord']][content['content_category']][
                 content['content_no']]['slot']
-        
+
             q = self.sigmoid(self.record[content['content_type']][content['content_coord']][
                                  content['content_category']] \
                                  [content['content_no']]['avg_reward'])
-        
+
             self.record[content['content_type']][content['content_coord']][content['content_category']][
                 content['content_no']]['q_value'] = q
-        
+
             # Add content and associated Q-value to the action space
             self.action_space.append({'content': content, 'q_value': q, 'slot': s, 'popularity': p})
-            return '''
-
+            return'''
 
     def append_action_space(self, slot, federated_update):
         # Add content from content_cache to the action space
@@ -368,7 +375,7 @@ class BaseStation:
                     # Add content and associated Q-value to the action space
                     self.action_space.append({'content': content, 'q_value': q, 'slot': s, 'popularity': p})
 
-    def select_action(self):    #MAB implementation
+    def select_action(self):  # MAB implementation
         # Clear the existing content cache
         self.clear_cache()
 
@@ -392,7 +399,6 @@ class BaseStation:
                     s_category = selected_content['content_category']
                     s_no = selected_content['content_no']
 
-
                     if s_coord not in self.content_cache:
                         self.content_cache[s_coord] = {}
 
@@ -406,7 +412,7 @@ class BaseStation:
                     # Update the remaining cache size
                     remaining_cache_size -= content_size
                 else:
-                    #print("Cache size limit reached. Cannot add more content.")
+                    # print("Cache size limit reached. Cannot add more content.")
                     break
         else:
             # Exploitation: Sort eligible actions based on q value
@@ -436,7 +442,7 @@ class BaseStation:
                     # Update the remaining cache size
                     remaining_cache_size -= content_size
                 else:
-                    #print("Cache size limit reached. Cannot add more content.")
+                    # print("Cache size limit reached. Cannot add more content.")
                     break
 
         return
@@ -616,8 +622,8 @@ class BaseStation:
 
         x1, y1 = self.current_location
         x2, y2 = cord
-        x_within_range = abs(x1 - x2) <= 150
-        y_within_range = abs(y1 - y2) <= 150
+        x_within_range = abs(x1 - x2) <= self.b_range
+        y_within_range = abs(y1 - y2) <= self.b_range
 
         if x_within_range and y_within_range:
             return True
@@ -640,7 +646,6 @@ class BaseStation:
                     if content['content_no'] == content_request['no']:
                         self.track_content_hit(content, slot)
                         return content
-        return None
 
     def track_content_hit(self, content, slot):
         # print('track_content_hit')

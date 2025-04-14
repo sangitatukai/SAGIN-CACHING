@@ -3,7 +3,9 @@
 import random
 import math
 import time
+import copy
 import numpy as np
+
 
 class Vehicle:
     def __init__(self, vehicle_id, grid_size, vehicle_range, vehicle_speed,  aggregator):
@@ -67,17 +69,19 @@ class Vehicle:
     def move(self):
         # Generate random direction: 0 = up, 1 = down, 2 = left, 3 = right
         direction = random.randint(0, 3)
-        if direction == 0 and self.current_location[1] > 0:
-            self.current_location = (self.current_location[0], self.current_location[1] - self.vehicle_speed)
-        elif direction == 1 and self.current_location[1] < self.grid_size - 1:
-            self.current_location = (self.current_location[0], self.current_location[1] + self.vehicle_speed)
-        elif direction == 2 and self.current_location[0] > 0:
-            self.current_location = (self.current_location[0] - self.vehicle_speed, self.current_location[1])
-        elif direction == 3 and self.current_location[0] < self.grid_size - 1:
-            self.current_location = (self.current_location[0] + self.vehicle_speed, self.current_location[1])
+        x, y = self.current_location
 
-        #print(f"Vehicle {self.vehicle_id} moved to {self.current_location}")
+        if direction == 0:  # Up
+            y = (y - self.vehicle_speed) % self.grid_size
+        elif direction == 1:  # Down
+            y = (y + self.vehicle_speed) % self.grid_size
+        elif direction == 2:  # Left
+            x = (x - self.vehicle_speed) % self.grid_size
+        elif direction == 3:  # Right
+            x = (x + self.vehicle_speed) % self.grid_size
 
+        self.current_location = (x, y)
+        # print(f"Vehicle {self.vehicle_id} moved to {self.current_location}")
 
     def is_within_range(self, other_location):
         x1, y1 = self.current_location
@@ -88,7 +92,8 @@ class Vehicle:
             return self.content_size.get(entity, 0)
 
 
-    def process_content_request(self, communication, content_request, slot, grid_size, flag):
+    def process_content_request(self, communication, content_request, slot, grid_size, vehicles, base_stations, flag):
+        #('hi')
         requested_entity_type = content_request['type']
         requested_coord = content_request['coord']
         requested_category = content_request['category']
@@ -130,22 +135,25 @@ class Vehicle:
         if requested_entity_type == "grid":
             if self.is_within_range(communication.get_coordinates_from_index(requested_coord, grid_size)):
                 content=self.generate_content(communication, content_request, slot)
-                if content:
-                    communication.content_received_time = (content_request['hop_count'] * random.uniform(0, 0.001)) + (content_request['hop_count']*((content['size'] * 8) / self.transmission_rate))
-                return True
             else:
                 self.request_receive_cache += 1
                 content=self.find_cache(communication, content_request, slot)
-                if content:
-                    if flag==0:
-                        communication.content_hit += 1
-                    if communication.content_received_time > (content_request['hop_count'] * random.uniform(0, 0.001)) + (content_request['hop_count'] * ((content['size'] * 8) / self.transmission_rate)):
-                            communication.content_received_time > (content_request['hop_count'] * random.uniform(0, 0.001)) + (
-                                content_request['hop_count'] * ((content['size'] * 8) / self.transmission_rate))
 
-                    return True
-                else:
-                    return False
+            if content:
+                '''if self.vehicle_id != content_request['requesting_vehicle']:
+                    self.forward_content(content_request, content, vehicles=vehicles, base_stations=base_stations,
+                                         communication=communication, slot=slot)'''
+
+                if communication.content_received_time > (content_request['hop_count'] * random.uniform(0, 0.001)) + (
+                        content_request['hop_count'] * ((content['size'] * 8) / self.transmission_rate)):
+                    communication.content_received_time = (content_request['hop_count'] * random.uniform(0, 0.001)) + (
+                            content_request['hop_count'] * ((content['size'] * 8) / self.transmission_rate))
+                if flag == 0:
+                    communication.content_hit += 1
+                return True
+            else:
+                return False
+
 
     def generate_content(self, communication, content_request,  slot):
         #print('generate content')
@@ -170,40 +178,33 @@ class Vehicle:
         }
         self.content_hit_from_source += 1
         self.update_action_space(content, slot, federated_update=False) # cache the content
+        return content
+
 
     def forward_content(self, content_request, content, vehicles, base_stations, communication,
                         slot):  # for the first time
         print('forward content')
         # step 1: check the vehicles in range
-
         for v in vehicles:
             if self != v and v.is_within_range(self.current_location):
-                content_copy = copy.deepcopy(content)
-                # content is received by vehicle
-                # simulate the content transmission delay and processing time
-                # Simulate the content transmission delay and processing time for this specific vehicle
-                content_copy['receive_time'] += content_copy['generation_time'] + (
-                            (content_copy['size'] * 8) / self.transmission_rate)  # Convert to seconds
-                content_copy['hop_count'] += 1  # Increase hop count for this copy
-                print(f"Vehicle {self.vehicle_id} forwarded content to {v.vehicle_id}")
-                # cache the content
-                # self.update_action_space(content, slot):  # cache the content
-                if content['destination'] == v.vehicle_id:
-                    # Increase the content_received_count_per_categorif content['destination'] == self.vehicle_id:
-                    if communication.content_received_time > content_copy[receive_time]:
-                        communication.content_received_time = content_copy[receive_time]
-
+                content['hop_count'] += 1
+                v.update_action_space(content, slot, federated_update=False)  # cache the content
                 for bs in base_stations:
-                    if bs.check_within_range(vehicle.current_location):
-                        bs.update_action_space(content, slot)
-
-                    else:
-                        if content_copy['hop_count'] < 4:
+                    if bs.check_within_range(v.current_location):
+                        bs.update_action_space(content, slot, federated_update=False)  # cache the content in BS
+                '''if content['destination'] != v.vehicle_id:  #this is broadcasting, it slows down the code
+                    content_copy = copy.deepcopy(content)
+                    content_copy['content_receive_time'] += content_copy['generation_time'] + (
+                            (content_copy['size'] * 8) / self.transmission_rate)
+                    content_copy['hop_count'] += 1  # Increase hop count for this copy
+                    if content_copy['hop_count'] < 4:
                         # Continue forwarding the content to the next vehicle
-                            v.forward_content(content_copy, vehicles, communication)
+                        v.forward_content(content_request, content_copy, vehicles, base_stations, communication, slot)
+                    else:
+                        return'''
 
-            else:
-                return
+
+
 
     def should_cache_content(self):
         # Implement your probabilistic approach to determine whether to cache the content or not
@@ -222,18 +223,22 @@ class Vehicle:
 
 
     def find_cache(self, communication, content_request, slot):
-        type = content_request['type']
-        coord = content_request['coord']
-        category = content_request['category']
+        if self.vehicle_id in ["V2", "V16", "V38", "V42"]:
+           # print(f"content request{content_request}\n")
+           # print(f"Vehicle {self.vehicle_id} cache before fetch:\n{self.content_cache}\n")
+            type = content_request['type']
+            coord = content_request['coord']
+            category = content_request['category']
 
-        if coord in self.content_cache:
-            if category in self.content_cache[coord]:
-                category_cache = self.content_cache[coord][category]
-                for content in category_cache:
-                    if content['content_no'] == content_request['no']:
-                            self.track_content_hit(content, slot)
-                            return content
-        return None
+            if coord in self.content_cache:
+                if category in self.content_cache[coord]:
+                    category_cache = self.content_cache[coord][category]
+                    for content in category_cache:
+                        if content['content_no'] == content_request['no']:
+                                self.track_content_hit(content, slot)
+                                return content
+
+            return None
 
     def track_content_hit(self, content, slot):
         #print('track_content_hit')
@@ -272,7 +277,6 @@ class Vehicle:
 
     def send_request_to_bs_thread(self, bs, content_request):
         bs.receive_request(content_request)
-
 
 
     def update_action_space(self, content, slot, federated_update): #ucb mab
@@ -428,34 +432,18 @@ class Vehicle:
                     p = self.record[content['content_type']][content['content_coord']][content['content_category']][
                         content['content_no']] \
                         ['weighted_request_tracking']
-                    s = max(1, self.record[content['content_type']][content['content_coord']]
-                    [content['content_category']][content['content_no']]['slot'])  # Ensure s >= 1
+                    s = self.record[content['content_type']][content['content_coord']][content['content_category']][
+                        content['content_no']]['slot']
 
-                    no_f_time_cached = max(1, self.record[content['content_type']][content['content_coord']]
-                    [content['content_category']][content['content_no']]['no_f_time_cached'])  # Ensure >=1
-
-                    ucb = np.sqrt((2 * np.log(s)) / no_f_time_cached)  # Now always valid
-
-                    local_q_value = self.sigmoid(self.record[content['content_type']][content['content_coord']]
-                                                 [content['content_category']][content['content_no']]['avg_reward'] +
-                                                 (self.cache_size / content['size']) +
-                                                 ((content['content_validity'] - time_spent) / content[
-                                                     'content_validity']) +
-                                                 self.record[content['content_type']][content['content_coord']]
-                                                 [content['content_category']][content['content_no']][
-                                                     'weighted_request_tracking'])
-                    if federated_update:
-                        federated_q_value = self.aggregator.get_federated_q_value(content)
-                        q = 0.5 * local_q_value + 0.5 * federated_q_value + ucb  # Weighted Combination
-                    else:
-                        q = local_q_value + ucb
+                    q = self.sigmoid(self.record[content['content_type']][content['content_coord']][
+                                         content['content_category']] \
+                                         [content['content_no']]['avg_reward'])
 
                     self.record[content['content_type']][content['content_coord']][content['content_category']][
                         content['content_no']]['q_value'] = q
 
                     # Add content and associated Q-value to the action space
-                    self.action_space.append(
-                        {'content': content, 'q_value': q, 'slot': s, 'popularity': p})
+                    self.action_space.append({'content': content, 'q_value': q, 'slot': s, 'popularity': p})
 
     def select_action(self):    #MAB implementation
         # Clear the existing content cache
@@ -535,6 +523,9 @@ class Vehicle:
         remaining_cache_size = self.cache_size
         selected_actions = []
 
+        # Start timing for decision latency measurement
+        start_time = time.time()
+
         # Sort actions based on 's' values in descending order
         sorted_actions = sorted(self.action_space, key=lambda action: action['slot'], reverse=True)
 
@@ -597,6 +588,16 @@ class Vehicle:
                     # Check if cache size is overwhelmed
                     if remaining_cache_size < 0.01:
                         break
+
+        decision_latency = time.time() - start_time
+
+        # Update only if decision latency is > 0
+        if decision_latency > 0:
+            self.avg_decision_latency += decision_latency
+            self.decision_count += 1
+
+        # 🔍 Print current cache
+       # print(f"Vehicle {self.vehicle_id} cache after selection:\n{self.content_cache}\n")
 
         return'''
 
@@ -700,7 +701,6 @@ class Vehicle:
                 and category in self.content_cache[coord]
                 and any(content['content_no'] == content_no for content in self.content_cache[coord][category])
         )
-
     def clear_cache(self):
         # Clear the existing content cache
         self.content_cache = {}
@@ -711,29 +711,54 @@ class Vehicle:
         """
         self.aggregator.receive_local_update(self.vehicle_id, self.record)
 
-    def run(self, current_time, slot, time_slots, vehicles, uavs, base_stations, satellites, communication, grid_size,
-            no_of_request_genertaed_in_each_timeslot, no_of_content_each_category):
-        self.cache_cleanup(current_time)
-        if ((slot - 1) % 10 == 0):
-            if slot > 10:
-                self.append_action_space(slot, federated_update=False)
-                if len(self.action_space):
-                    self.select_action()
-                    self.action_space = []
-                self.send_update_to_federated_server()
-            if slot > 20:
-                self.get_reward()
+    def cache_all_grid_content(self, slot, grid_size, no_of_content_each_category):
+        for x in range(grid_size):
+            for y in range(grid_size):
+                coord_index = y * grid_size + x  # Flatten 2D coord to grid index
+                for category in self.content_categories:
+                    for content_no in range(1, no_of_content_each_category + 1):
+                        content_validity = 10 * 60  # seconds
+                        content_size = self.content_size.get(category, 0)
+                        request_recieve_time = slot * 60
+                        content = {
+                            'unique_id': random.randint(1, 999999),
+                            'destination': self.vehicle_id,
+                            'generation_time': request_recieve_time,
+                            'hop_count': 0,
+                            'content_type': 'grid',
+                            'content_category': category,
+                            'content_coord': coord_index,
+                            'content_no': content_no,
+                            'content_validity': content_validity,
+                            'content_receive_time': 0,
+                            'size': content_size
+                        }
+                        self.update_action_space(content, slot, federated_update=False)
 
-        self.move()
-        for uav in uavs:  # check under which uav this vehicle is travelling # chnages for spatio-temporal
-            if uav.is_within_coverage(self.current_location[0], self.current_location[1]):
-                for _ in range(no_of_request_genertaed_in_each_timeslot):
-                    content_request = communication.send_content_request(self, vehicles, uavs, base_stations,
-                                                                         satellites,
-                                                                         grid_size, current_time, slot,
-                                                                         no_of_content_each_category, uav.current_zipf)
 
-                if (content_request['unique_id'] != 0):
-                    self.active_requests.add(content_request['unique_id'])
-                    communication.content_request_queue.put(content_request)
+
+    def run(self, current_time, slot, time_slots, vehicles, uavs, base_stations, satellites, communication, grid_size, no_of_request_genertaed_in_each_timeslot, no_of_content_each_category):
+
+      if ((slot - 1) % 10 == 0):
+          self.cache_cleanup(current_time)
+          if slot > 10:
+              self.append_action_space(slot, federated_update=False)
+              self.cache_all_grid_content(slot, grid_size, no_of_content_each_category)
+              if len(self.action_space):
+                  self.select_action()
+                  self.action_space = []
+              self.send_update_to_federated_server()
+          if slot > 20:
+            self.get_reward()
+
+      self.move()
+      # Generate content requests for a specified number of times
+      for uav in uavs:  # check under which uav this vehicle is travelling # chnages for spatio-temporal
+          if uav.is_within_coverage(self.current_location[0], self.current_location[1]):
+              for _ in range(no_of_request_genertaed_in_each_timeslot):
+                  content_request = communication.send_content_request(self, vehicles, uavs, base_stations, satellites,grid_size, current_time, slot, no_of_content_each_category, uav.current_zipf)
+
+              if(content_request['unique_id'] != 0):
+                   self.active_requests.add(content_request['unique_id'])
+                   communication.content_request_queue.put(content_request)
 

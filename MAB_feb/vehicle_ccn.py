@@ -88,6 +88,7 @@ class Vehicle:
 
 
     def process_content_request(self, communication, content_request, slot, grid_size, flag):
+        print('hi')
         requested_entity_type = content_request['type']
         requested_coord = content_request['coord']
         requested_category = content_request['category']

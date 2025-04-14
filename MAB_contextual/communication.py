@@ -154,7 +154,7 @@ class Communication:
             'hop_count': 0,
             'time_spent': 0
         }'''
-    import numpy as np
+  
 
     def custom_zipf(self, alpha, n):
         if alpha <= 0:
@@ -293,7 +293,7 @@ class Communication:
                                 if uav.is_within_coverage(bs.current_location[0], bs.current_location[1]):
                                     bs.update_action_space(content, slot, federated_update=False)
 
-            if requesting_vehicle.process_content_request(self, content_request, slot, grid_size, flag1): #check for the requesting vehicle
+            if requesting_vehicle.process_content_request(self, content_request, slot, grid_size, vehicles, base_stations, flag1): #check for the requesting vehicle
                 if element_type == "satellite":
                         if requested_category in ["I", "II", "III"]:
                             with open(f'receiving_time_satellite_{requested_category}_content_{self.alpha}_{self.time_slots}_{self.round}.txt',
@@ -307,25 +307,29 @@ class Communication:
                                         file.write(str(self.content_received_time) + '\n')
                 return #if content is avaialble we return becyse this is the minimum'''
 
-        if hop_count < 4:
+        if hop_count < 2:
             new_content_request = copy.deepcopy(content_request)
             new_content_request['hop_count'] += 1
             flag2=0
             for vehicle in vehicles:
                 if (vehicle != requesting_vehicle and vehicle.is_within_range(requesting_vehicle.current_location) and
                         vehicle.vehicle_id not in new_content_request['vehicle_list']): #checking whether this request has already processed by this vehicle
-                        if vehicle.process_content_request(self, new_content_request, slot, grid_size, flag1):
+                        if vehicle.process_content_request(self, new_content_request, slot, grid_size, vehicles, base_stations, flag1):
                             flag1=1
                             break
+                        '''else: #broadcast to the neighbour but it slows down the code !
+                            requesting_vehicle = vehicle
+                            self.broadcast_request(requesting_vehicle, new_content_request, vehicles, uavs, satellites,  
+                                                   base_stations, grid_size, current_time, slot, communication_schedule,
+                                                   ground_station)'''
+
             for bs in base_stations:
                 if bs.check_within_range(requesting_vehicle.current_location):
                       if bs.process_content_request(self, new_content_request, slot, grid_size, ground_station, flag1):
                           flag1=1
-            if flag1 == 0 and element_type == "grid":
-                if vehicle != requesting_vehicle and vehicle.is_within_range(requesting_vehicle.current_location):
-                    requesting_vehicle=vehicle
-                    self.broadcast_request(requesting_vehicle, new_content_request, vehicles, uavs, satellites, base_stations,  grid_size, current_time, slot, communication_schedule, ground_station)
-            else:
+                          break
+
+            if flag1==1:
                 if element_type == "satellite":
                     if requested_category in ["I", "II", "III"]:
                         with open(

@@ -329,7 +329,7 @@ def run_simulation(alpha, time_slots, num_simulations):
         avg_source_hit_b, avg_request_b, avg_request_cache_b
 
 # Run simulations for different time slot values
-time_slot_values = [100]
+time_slot_values = [900]
 alphas= [0.5]
 num_simulations = 1
 

@@ -43,17 +43,17 @@ def run_simulation(alpha, time_slots, num_simulations):
     for _ in range(num_simulations):
         # Set grid size and UAV grid size
         #grid_size = 1000  # each grid 10 meter in our simulation (10km * 10km)
-        grid_size = 100  # each grid 100 meter in our simulation (10km * 10km)
-        uav_grid_size = 20 # 2000 meter range //50
-        vehicle_range = 10  # 1000 meter
-        bs_range = 15  # 1.5 km range
+        grid_size = 10  # each grid 1000 meter in our simulation (10km * 10km)
+        uav_grid_size = 2 # 2000 meter range //50
+        vehicle_range = 1  # 1000 meter
+        bs_range = 1.5  # 1.5 km range
         vehicle_count = 50 #varibale
         satellite_count = 9 #varible
         bs_count = 3 #varible
-        no_of_content_each_category= 10
+        no_of_content_each_category= 1
 
         uav_content_generation_period=10
-        no_of_request_genertaed_in_each_timeslot=5
+        no_of_request_genertaed_in_each_timeslot=1
         epsilon=0.1
 
         # Calculate the number of rows and columns to evenly distribute the vehicles
@@ -82,11 +82,13 @@ def run_simulation(alpha, time_slots, num_simulations):
         # Calculate UAV count
         uav_count = (grid_size // uav_grid_size) ** 2
 
-        # Create UAVs //change for spatio_temporal_request_generation
+
+        # Create UAVs
         uavs = [UAV(uav_id=f"UAV{i}", grid_size=grid_size, uav_grid_size=uav_grid_size, aggregator=aggregator,
                     current_zipf=(random.uniform(0.25, 2.0))) for i in range(uav_count)]
 
-        # Add neighbors to UAVs
+
+# Add neighbors to UAVs
         for i in range(uav_count):
             # Calculate the neighboring UAVs based on the grid size and UAV grid size
             neighboring_uavs = []
@@ -291,10 +293,10 @@ def run_simulation(alpha, time_slots, num_simulations):
         file.write(f"values for total caching: total cache hit:{cache_hit} \n")
         file.write(f"hit values for uav: hit_from_direct_hit: {hit_from_direct_uav}, hit from GS: {bs_content_hit_from_gs}, hit for SAGIN links_uav: {hit_for_sagin_links_uav}, hit for SAGIN links_sat: {hit_for_sagin_links_sat}"
             f"values cache_hit_details: total hit from uav: {cache_hit_u}, optimal_hit :{optimal_hit}, cache_1st_hop: {cache_1st_hop}, cache_2nd_hop: {cache_2nd_hop}"
-            f"values for requests: total request receved : {total_request_received}, total request for caching: {total_request_from_other_sources} \n")
+            f"values for requests: total request receved : {total_request_received}, total request for caching: {total_request_from_other_sources}, average decision latency:{avg_decision_latency} \n")
 
         file.write(
-            f"values for vehicles: hit from source: {v_source_hit}, hit from cache: {v_cache_hit}, total request: {v_request}, request for cache:{v_request_caching} \n")
+            f"values for vehicles: hit from source: {v_source_hit}, hit from cache: {v_cache_hit}, total request: {v_request}, request for cache:{v_request_caching}, average decision latency:{avg_decision_latency_v}\n")
         file.write(
             f"values for bs: hit from source: {b_source_hit}, hit from cache: {b_cache_hit}, total request: {b_request}, request for cache:{b_request_caching} \n")
 
@@ -330,8 +332,8 @@ def run_simulation(alpha, time_slots, num_simulations):
         avg_source_hit_b, avg_request_b, avg_request_cache_b
 
 # Run simulations for different time slot values
-time_slot_values = [100]
-alphas= [0.5]
+time_slot_values = [120, 300, 900, 1500]
+alphas= [0.25, 0.5, 1, 2]
 num_simulations = 1
 
 # Open a file for writing
@@ -349,8 +351,8 @@ for time_slots in time_slot_values:
             file.write(f"\nResults for value {alpha} for {time_slots} time slots (averaged over {num_simulations} simulations):\n")
             file.write(f"Average total content hit: {avg_cache_hit}\n")
             file.write(f"Average total content hit: {avg_cache_hit/avg_total_request_received_for_other_sources}\n")
-            file.write(f"Average decision latency_UAV: {avg_decision_latency}\n")
-            file.write(f"Average decision latency_vehicle: {avg_decision_latency_v}\n")
+            #file.write(f"Average decision latency_UAV: {avg_decision_latency}\n")
+            #file.write(f"Average decision latency_vehicle: {avg_decision_latency_v}\n")
 
 
             file.write(f"Average direct_hit_uav: {avg_hit_from_direct_hit}\n")

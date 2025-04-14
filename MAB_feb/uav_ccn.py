@@ -1103,5 +1103,5 @@ class UAV:
             self.send_update_to_federated_server()
         #self.print_he()
 #self.print_cache()
-            if slot % 60 == 0:
+            if slot % 30 == 0:
                 self.update_zipf(slot)
